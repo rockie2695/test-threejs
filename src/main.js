@@ -33,6 +33,10 @@ const camera = new THREE.PerspectiveCamera(
   0.1,
   1000
 ); //(顯示器上可見的場景範圍。其值以度為單位。,aspect ratio,near和far裁切平面(距離相機超過far或 的物體near將不會被渲染))
+// camera.position.z = 5;
+// Camera 身為鏡頭，有位置屬性，設定在Z軸即可。
+// camera.position.set(0, 0, 15);
+camera.position.set(0, 10, 15);
 
 //渲染器
 const renderer = new THREE.WebGLRenderer();
@@ -42,40 +46,140 @@ document.body.appendChild(renderer.domElement);
 
 // const geometry = new THREE.BoxGeometry(1, 1, 1); //立方體
 // const geometry = new THREE.SphereGeometry(1, 50, 50); // 參數帶入半徑、水平面數、垂直面數
-const geometry = new THREE.SphereGeometry(100, 50, 50);
+
 //const material = new THREE.MeshBasicMaterial({color: 0x0000ff})//blue
 // const material = new THREE.MeshNormalMaterial({ color: 0x00ff00 }); //green
-const texture = new THREE.TextureLoader().load(
-  "/free_star_sky_hdri_spherical_map_by_kirriaa_dbw8p0w.png"
+
+// 改名成skydome
+const skydomeTexture = new THREE.TextureLoader().load(
+  "/free_star_sky_hdri_spherical_map_by_kirriaa_dbw8p0w.jpg"
 );
-const material = new THREE.MeshStandardMaterial({
-  map: texture,
+const skydomeMaterial = new THREE.MeshBasicMaterial({
+  map: skydomeTexture,
   side: THREE.DoubleSide,
 });
+const skydomeGeometry = new THREE.SphereGeometry(100, 50, 50);
+const skydome = new THREE.Mesh(skydomeGeometry, skydomeMaterial);
+scene.add(skydome);
+
 // 新增環境光
-const light = new THREE.AmbientLight(0xffffff, 1);
-scene.add(light);
+const addAmbientLight = () => {
+  const light = new THREE.AmbientLight(0xffffff, 0.5);
+  scene.add(light);
+};
+// 新增平行光
+const addDirectionalLight = () => {
+  const directionalLight = new THREE.DirectionalLight(0xffffff, 3);
+  directionalLight.position.set(0, 0, 10);
+  scene.add(directionalLight);
+  directionalLight.castShadow = true;
+  const d = 10;
+
+  directionalLight.shadow.camera.left = -d;
+  directionalLight.shadow.camera.right = d;
+  directionalLight.shadow.camera.top = d;
+  directionalLight.shadow.camera.bottom = -d;
+
+  // 新增Helper
+  const lightHelper = new THREE.DirectionalLightHelper(
+    directionalLight,
+    20,
+    0xffff00
+  );
+  scene.add(lightHelper);
+  // 更新位置
+  directionalLight.target.position.set(0, 0, 0);
+  directionalLight.target.updateMatrixWorld();
+  // 更新Helper
+  lightHelper.update();
+};
+
+// 新增點光
+const addPointLight = () => {
+  const pointLight = new THREE.PointLight(0xffffff, 100);
+  scene.add(pointLight);
+  pointLight.position.set(10, 10, -10);
+  pointLight.castShadow = true;
+  // 新增Helper
+  const lightHelper = new THREE.PointLightHelper(pointLight, 20, 0xffff00);
+  scene.add(lightHelper);
+  // 更新Helper
+  lightHelper.update();
+};
+
+addPointLight();
+addAmbientLight();
+addDirectionalLight();
+
+// 區域光
+// const rectLight = new THREE.RectAreaLight( 0xffffff, 0.2,  10, 10 );
+// scene.add(rectLight);
+// 更新光源位置
+// rectLight.position.set( 5, 5, 0 );
+
 // const cube = new THREE.Mesh(geometry, material); //網格是一個採用幾何體並應用材質的對象
 // const parent = new THREE.Mesh(geometry, material);
 // const child = new THREE.Mesh(geometry, material);
 // scene.add(cube);
 // scene.add(parent);
 // parent.add(child);
-const sphere = new THREE.Mesh(geometry, material);
-scene.add(sphere);
 
-const earthGeometry = new THREE.SphereGeometry(5, 50, 50);
+const earthGeometry = new THREE.SphereGeometry(5, 600, 600);
 // 匯入材質
-const earthTexture = new THREE.TextureLoader().load(
-  "Solarsystemscope_texture_8k_earth_daymap.jpg"
+const earthTexture = new THREE.TextureLoader().load("8081_earthmap4k.jpg");
+// 新增灰階高度貼圖
+const displacementTexture = new THREE.TextureLoader().load(
+  "/8081_earthbump4k.jpg"
+);
+const speculatMapTexture = new THREE.TextureLoader().load(
+  "/8081_earthspec4k.jpg"
+);
+const roughtnessTexture = new THREE.TextureLoader().load(
+  "/8081_earthspec2kReversedLighten.png"
 );
 // 帶入材質，設定內外面
 const earthMaterial = new THREE.MeshStandardMaterial({
   map: earthTexture,
   side: THREE.DoubleSide,
+  // 將貼圖貼到材質參數中
+  displacementMap: displacementTexture,
+  // wireframe: true,
+  displacementScale: 0.5,
+  // 加上金屬貼圖
+  metalnessMap: speculatMapTexture,
+  // 由於預設金屬為0，所以必須調成1，才使得我們的貼圖可以呈現0~1的金屬範圍。黑代表0，白代表1
+  metalness: 1,
+  roughnessMap: roughtnessTexture,
+  roughness: 0.9,
 });
 const earth = new THREE.Mesh(earthGeometry, earthMaterial);
+// earth.position.set(20, 0, 0);
 scene.add(earth);
+
+// 雲的球比地球大一點
+const cloudGeometry = new THREE.SphereGeometry(5.4, 60, 60);
+const cloudTransparency = new THREE.TextureLoader().load(
+  "8081_earthhiresclouds2K.jpg"
+);
+const cloudMaterial = new THREE.MeshStandardMaterial({
+  // 開啟透明功能
+  transparent: true,
+  // 加上透明貼圖
+  opacity: 1,
+  alphaMap: cloudTransparency,
+});
+const cloud = new THREE.Mesh(cloudGeometry, cloudMaterial);
+scene.add(cloud);
+
+// 新增太陽
+// const sunGeometry = new THREE.SphereGeometry(5, 50, 50);
+// const sunTexture = new THREE.TextureLoader().load("2k_sun.png");
+// const sunMaterial = new THREE.MeshBasicMaterial({
+//   map: sunTexture,
+//   side: THREE.DoubleSide,
+// });
+// const sun = new THREE.Mesh(sunGeometry, sunMaterial);
+// scene.add(sun);
 
 // axesHelper
 // const axesHelper = new THREE.AxesHelper(5);
@@ -88,11 +192,6 @@ scene.add(earth);
 // const hex = 0xffff00;
 // const arrowHelper = new THREE.ArrowHelper(dir, origin, length, hex);
 // scene.add(arrowHelper);
-
-// camera.position.z = 5;
-// Camera 身為鏡頭，有位置屬性，設定在Z軸即可。
-// camera.position.set(0, 0, 15);
-camera.position.set(0, 10, 15);
 
 // cube.geometry.translate(5, 0, 0);
 // cube.geometry.scale(2, 1, 1);
@@ -114,6 +213,9 @@ let quaternion = new THREE.Quaternion();
 const control = new OrbitControls(camera, renderer.domElement);
 
 function animate() {
+  earth.rotation.y += 0.005;
+  cloud.rotation.y += 0.004;
+  skydome.rotation.y += 0.001;
   // cube.rotation.x += 0.01;
   // cube.rotation.y += 0.01;
 
@@ -135,8 +237,8 @@ function animate() {
   // 看向該向量
   // camera.lookAt(cameraLookAt);
   // 改用這個方法來控制鏡頭的方向
-  control.target.set(10, 0, 0);
-  control.update();
+  // control.target.set(10, 0, 0);
+  // control.update();
 
   renderer.render(scene, camera);
 }
