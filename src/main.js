@@ -4,6 +4,124 @@ import viteLogo from "/vite.svg";
 import { setupCounter } from "./counter.js";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 
+import * as THREE from "three";
+
+const cities = [
+  { name: "--- select city ---", id: 0, lat: 0, lon: 0, country: "None" },
+  {
+    name: "Mumbai",
+    id: 1356226629,
+    lat: 19.0758,
+    lon: 72.8775,
+    country: "India",
+  },
+  {
+    name: "Moscow",
+    id: 1643318494,
+    lat: 55.7558,
+    lon: 37.6178,
+    country: "Russia",
+  },
+  {
+    name: "Xiamen",
+    id: 1156212809,
+    lat: 24.4797,
+    lon: 118.0819,
+    country: "China",
+  },
+  {
+    name: "Phnom Penh",
+    id: 1116260534,
+    lat: 11.5696,
+    lon: 104.921,
+    country: "Cambodia",
+  },
+  {
+    name: "Chicago",
+    id: 1840000494,
+    lat: 41.8373,
+    lon: -87.6862,
+    country: "United States",
+  },
+  {
+    name: "Bridgeport",
+    id: 1840004836,
+    lat: 41.1918,
+    lon: -73.1953,
+    country: "United States",
+  },
+  {
+    name: "Mexico City",
+    id: 1484247881,
+    lat: 19.4333,
+    lon: -99.1333,
+    country: "Mexico",
+  },
+  {
+    name: "Karachi",
+    id: 1586129469,
+    lat: 24.86,
+    lon: 67.01,
+    country: "Pakistan",
+  },
+  {
+    name: "London",
+    id: 1826645935,
+    lat: 51.5072,
+    lon: -0.1275,
+    country: "United Kingdom",
+  },
+  {
+    name: "Boston",
+    id: 1840000455,
+    lat: 42.3188,
+    lon: -71.0846,
+    country: "United States",
+  },
+  {
+    name: "Taichung",
+    id: 1158689622,
+    lat: 24.15,
+    lon: 120.6667,
+    country: "Taiwan",
+  },
+];
+
+const citySelect = document.getElementsByClassName("city-select")[0];
+// 渲染option
+citySelect.innerHTML = cities.map(
+  (city) => `<option value="${city.id}">${city.name}</option>`
+);
+
+citySelect.addEventListener("change", (event) => {
+  const cityId = event.target.value;
+  const seletedCity = cities.find((city) => city.id + "" === cityId);
+  console.log(seletedCity);
+  // 用前面的函式所取得的座標
+  const cityEciPosition = lonLauToRadian(seletedCity.lon, seletedCity.lat, 4.4);
+  // 指定位置給圖釘
+  ring.position.set(cityEciPosition.x, -cityEciPosition.z, -cityEciPosition.y);
+  const center = new THREE.Vector3(0, 0, 0);
+  // 圖釘永遠都看像世界中心，所以不會歪斜。
+  ring.lookAt(center);
+  control.update();
+});
+
+// 將LLA轉換成ECEF座標
+const llaToEcef = (lat, lon, alt, rad) => {
+  let f = 0;
+  let ls = Math.atan((1 - f) ** 2 * Math.tan(lat));
+  let x =
+    rad * Math.cos(ls) * Math.cos(lon) + alt * Math.cos(lat) * Math.cos(lon);
+  let y =
+    rad * Math.cos(ls) * Math.sin(lon) + alt * Math.cos(lat) * Math.sin(lon);
+  let z = rad * Math.sin(ls) + alt * Math.sin(lat);
+  return new THREE.Vector3(x, y, z);
+};
+
+const lonLauToRadian = (lon, lat, rad) =>
+  llaToEcef((Math.PI * (0 - lat)) / 180, Math.PI * (lon / 180), 1, rad);
+
 // document.querySelector('#app').innerHTML = `
 //   <div>
 //     <a href="https://vite.dev" target="_blank">
@@ -23,8 +141,6 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 // `
 
 // setupCounter(document.querySelector('#counter'))
-
-import * as THREE from "three";
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(
@@ -49,6 +165,14 @@ document.body.appendChild(renderer.domElement);
 
 //const material = new THREE.MeshBasicMaterial({color: 0x0000ff})//blue
 // const material = new THREE.MeshNormalMaterial({ color: 0x00ff00 }); //green
+
+const geo = new THREE.RingGeometry(0.1, 0.13, 32);
+const mat = new THREE.MeshBasicMaterial({
+  color: 0xffff00,
+  side: THREE.DoubleSide,
+});
+const ring = new THREE.Mesh(geo, mat);
+scene.add(ring);
 
 // 改名成skydome
 const skydomeTexture = new THREE.TextureLoader().load(
@@ -213,7 +337,7 @@ let quaternion = new THREE.Quaternion();
 const control = new OrbitControls(camera, renderer.domElement);
 
 function animate() {
-  earth.rotation.y += 0.005;
+  // earth.rotation.y += 0.005;
   cloud.rotation.y += 0.004;
   skydome.rotation.y += 0.001;
   // cube.rotation.x += 0.01;
