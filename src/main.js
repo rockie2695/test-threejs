@@ -3,89 +3,106 @@ import javascriptLogo from "./javascript.svg";
 import viteLogo from "/vite.svg";
 import { setupCounter } from "./counter.js";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
-
+import { TextGeometry } from "three/addons/geometries/TextGeometry.js";
+import { FontLoader } from "three/addons/loaders/FontLoader.js";
 import * as THREE from "three";
 
 const cities = [
-  { name: "--- select city ---", id: 0, lat: 0, lon: 0, country: "None" },
+  { name: "--- 選擇城市 ---", id: 0, lat: 0, lon: 0, country: "None" },
   {
-    name: "Mumbai",
+    name: "孟買",
     id: 1356226629,
     lat: 19.0758,
     lon: 72.8775,
     country: "India",
   },
   {
-    name: "Moscow",
+    name: "莫斯科",
     id: 1643318494,
     lat: 55.7558,
     lon: 37.6178,
     country: "Russia",
   },
   {
-    name: "Xiamen",
+    name: "廈門",
     id: 1156212809,
     lat: 24.4797,
     lon: 118.0819,
     country: "China",
   },
   {
-    name: "Phnom Penh",
+    name: "金邊",
     id: 1116260534,
     lat: 11.5696,
     lon: 104.921,
     country: "Cambodia",
   },
   {
-    name: "Chicago",
+    name: "芝加哥",
     id: 1840000494,
     lat: 41.8373,
     lon: -87.6862,
     country: "United States",
   },
   {
-    name: "Bridgeport",
+    name: "布里奇波特",
     id: 1840004836,
     lat: 41.1918,
     lon: -73.1953,
     country: "United States",
   },
   {
-    name: "Mexico City",
+    name: "墨西哥城",
     id: 1484247881,
     lat: 19.4333,
     lon: -99.1333,
     country: "Mexico",
   },
   {
-    name: "Karachi",
+    name: "卡拉奇",
     id: 1586129469,
     lat: 24.86,
     lon: 67.01,
     country: "Pakistan",
   },
   {
-    name: "London",
+    name: "倫敦",
     id: 1826645935,
     lat: 51.5072,
     lon: -0.1275,
     country: "United Kingdom",
   },
   {
-    name: "Boston",
+    name: "波士頓",
     id: 1840000455,
     lat: 42.3188,
     lon: -71.0846,
     country: "United States",
   },
   {
-    name: "Taichung",
+    name: "臺中",
     id: 1158689622,
     lat: 24.15,
     lon: 120.6667,
     country: "Taiwan",
   },
 ];
+let font;
+const loader = new FontLoader();
+loader.load(
+  "https://storage.googleapis.com/umas_public_assets/michaelBay/day13/jf-openhuninn-1.1_Regular_cities.json",
+  function (font) {
+    font = font;
+  }
+);
+
+let lerpTarget;
+// 加上兩個變數
+let lerpPropical = new THREE.Vector3(0, 0, 0);
+let moveAlongTropical = new THREE.Vector3(0, 0, 0);
+// moveAlongTropical的移動進度
+let moveProgress;
+let tropical;
 
 const citySelect = document.getElementsByClassName("city-select")[0];
 // 渲染option
@@ -100,27 +117,30 @@ citySelect.addEventListener("change", (event) => {
   // 用前面的函式所取得的座標
   const cityEciPosition = lonLauToRadian(seletedCity.lon, seletedCity.lat, 4.4);
   // 指定位置給圖釘
-  ring.position.set(cityEciPosition.x, -cityEciPosition.z, -cityEciPosition.y);
+  ring.position.set(...cityEciPosition.toArray());
   const center = new THREE.Vector3(0, 0, 0);
   // 圖釘永遠都看像世界中心，所以不會歪斜。
   ring.lookAt(center);
+
+  // 移除上一個城市的文字mesh
+  text.removeFromParent();
+  // 新增文字mesh
+  text = addText(seletedCity.name);
+  // 設定文字位置於圖釘上
+  text.position.set(ring.position.toArray());
+
+  tropical = 1;
+  // 當用戶選城市時，更新lerp移動的結果參數
+  lerpTarget = new THREE.Vector3(0, 0, 0)
+    .set(...ring.position.toArray())
+    .multiplyScalar(3);
+  moveAlongTropical.set(...camera.position.toArray());
+  moveProgress = 1;
+  lerpPropical.set(...camera.position.toArray());
+  // 修改鏡頭位置，multiplyScalar可以縮放向量
+  // camera.position.set(...ring.position.toArray()).multiplyScalar(3)
   control.update();
 });
-
-// 將LLA轉換成ECEF座標
-const llaToEcef = (lat, lon, alt, rad) => {
-  let f = 0;
-  let ls = Math.atan((1 - f) ** 2 * Math.tan(lat));
-  let x =
-    rad * Math.cos(ls) * Math.cos(lon) + alt * Math.cos(lat) * Math.cos(lon);
-  let y =
-    rad * Math.cos(ls) * Math.sin(lon) + alt * Math.cos(lat) * Math.sin(lon);
-  let z = rad * Math.sin(ls) + alt * Math.sin(lat);
-  return new THREE.Vector3(x, y, z);
-};
-
-const lonLauToRadian = (lon, lat, rad) =>
-  llaToEcef((Math.PI * (0 - lat)) / 180, Math.PI * (lon / 180), 1, rad);
 
 // document.querySelector('#app').innerHTML = `
 //   <div>
@@ -166,25 +186,53 @@ document.body.appendChild(renderer.domElement);
 //const material = new THREE.MeshBasicMaterial({color: 0x0000ff})//blue
 // const material = new THREE.MeshNormalMaterial({ color: 0x00ff00 }); //green
 
-const geo = new THREE.RingGeometry(0.1, 0.13, 32);
-const mat = new THREE.MeshBasicMaterial({
-  color: 0xffff00,
-  side: THREE.DoubleSide,
-});
-const ring = new THREE.Mesh(geo, mat);
-scene.add(ring);
+const addText = (text) => {
+  const textGeometry = new TextGeometry(text, {
+    font: font,
+    size: 0.2,
+    height: 0.01,
+    curveSegments: 2,
+    bevelEnabled: false,
+    bevelThickness: 10,
+    bevelSize: 0,
+    bevelOffset: 0,
+    bevelSegments: 1,
+  });
+  const textMaterial = new THREE.MeshBasicMaterial({ color: 0xffff00 });
+  const textMesh = new THREE.Mesh(textGeometry, textMaterial);
+  textMesh.geometry.translate(text.length * -0.2, 0.2, 0);
+  scene.add(textMesh);
+  return textMesh;
+};
 
-// 改名成skydome
-const skydomeTexture = new THREE.TextureLoader().load(
-  "/free_star_sky_hdri_spherical_map_by_kirriaa_dbw8p0w.jpg"
-);
-const skydomeMaterial = new THREE.MeshBasicMaterial({
-  map: skydomeTexture,
-  side: THREE.DoubleSide,
-});
-const skydomeGeometry = new THREE.SphereGeometry(100, 50, 50);
-const skydome = new THREE.Mesh(skydomeGeometry, skydomeMaterial);
-scene.add(skydome);
+const createRing = () => {
+  const geo = new THREE.RingGeometry(0.1, 0.13, 32);
+  const mat = new THREE.MeshBasicMaterial({
+    color: 0xffff00,
+    side: THREE.DoubleSide,
+  });
+  const ring = new THREE.Mesh(geo, mat);
+  scene.add(ring);
+  return ring;
+};
+const createSkydome = () => {
+  // 匯入材質
+  const skydomeTexture = new THREE.TextureLoader().load(
+    "/free_star_sky_hdri_spherical_map_by_kirriaa_dbw8p0w.jpg"
+  );
+  // 帶入材質，設定內外面
+  const skydomeMaterial = new THREE.MeshBasicMaterial({
+    map: skydomeTexture,
+    side: THREE.DoubleSide,
+  });
+  const skydomeGeometry = new THREE.SphereGeometry(100, 50, 50);
+  const skydome = new THREE.Mesh(skydomeGeometry, skydomeMaterial);
+  scene.add(skydome);
+  return skydome;
+};
+
+// 初始化物件
+let text = addText("");
 
 // 新增環境光
 const addAmbientLight = () => {
@@ -248,52 +296,58 @@ addDirectionalLight();
 // scene.add(parent);
 // parent.add(child);
 
-const earthGeometry = new THREE.SphereGeometry(5, 600, 600);
-// 匯入材質
-const earthTexture = new THREE.TextureLoader().load("8081_earthmap4k.jpg");
-// 新增灰階高度貼圖
-const displacementTexture = new THREE.TextureLoader().load(
-  "/8081_earthbump4k.jpg"
-);
-const speculatMapTexture = new THREE.TextureLoader().load(
-  "/8081_earthspec4k.jpg"
-);
-const roughtnessTexture = new THREE.TextureLoader().load(
-  "/8081_earthspec2kReversedLighten.png"
-);
-// 帶入材質，設定內外面
-const earthMaterial = new THREE.MeshStandardMaterial({
-  map: earthTexture,
-  side: THREE.DoubleSide,
-  // 將貼圖貼到材質參數中
-  displacementMap: displacementTexture,
-  // wireframe: true,
-  displacementScale: 0.5,
-  // 加上金屬貼圖
-  metalnessMap: speculatMapTexture,
-  // 由於預設金屬為0，所以必須調成1，才使得我們的貼圖可以呈現0~1的金屬範圍。黑代表0，白代表1
-  metalness: 1,
-  roughnessMap: roughtnessTexture,
-  roughness: 0.9,
-});
-const earth = new THREE.Mesh(earthGeometry, earthMaterial);
-// earth.position.set(20, 0, 0);
-scene.add(earth);
+const createEarth = () => {
+  const earthGeometry = new THREE.SphereGeometry(5, 600, 600);
+  // 匯入材質
+  const earthTexture = new THREE.TextureLoader().load("8081_earthmap4k.jpg");
+  // 新增灰階高度貼圖
+  const displacementTexture = new THREE.TextureLoader().load(
+    "/8081_earthbump4k.jpg"
+  );
+  const speculatMapTexture = new THREE.TextureLoader().load(
+    "/8081_earthspec4k.jpg"
+  );
+  const roughtnessTexture = new THREE.TextureLoader().load(
+    "/8081_earthspec2kReversedLighten.png"
+  );
+  // 帶入材質，設定內外面
+  const earthMaterial = new THREE.MeshStandardMaterial({
+    map: earthTexture,
+    side: THREE.DoubleSide,
+    // 將貼圖貼到材質參數中
+    displacementMap: displacementTexture,
+    // wireframe: true,
+    displacementScale: 0.5,
+    // 加上金屬貼圖
+    metalnessMap: speculatMapTexture,
+    // 由於預設金屬為0，所以必須調成1，才使得我們的貼圖可以呈現0~1的金屬範圍。黑代表0，白代表1
+    metalness: 1,
+    roughnessMap: roughtnessTexture,
+    roughness: 0.9,
+  });
+  const earth = new THREE.Mesh(earthGeometry, earthMaterial);
+  // earth.position.set(20, 0, 0);
+  scene.add(earth);
+  return earth;
+};
 
-// 雲的球比地球大一點
-const cloudGeometry = new THREE.SphereGeometry(5.4, 60, 60);
-const cloudTransparency = new THREE.TextureLoader().load(
-  "8081_earthhiresclouds2K.jpg"
-);
-const cloudMaterial = new THREE.MeshStandardMaterial({
-  // 開啟透明功能
-  transparent: true,
-  // 加上透明貼圖
-  opacity: 1,
-  alphaMap: cloudTransparency,
-});
-const cloud = new THREE.Mesh(cloudGeometry, cloudMaterial);
-scene.add(cloud);
+const createCloud = () => {
+  // 雲的球比地球大一點
+  const cloudGeometry = new THREE.SphereGeometry(5.4, 60, 60);
+  const cloudTransparency = new THREE.TextureLoader().load(
+    "8081_earthhiresclouds2K.jpg"
+  );
+  const cloudMaterial = new THREE.MeshStandardMaterial({
+    // 開啟透明功能
+    transparent: true,
+    // 加上透明貼圖
+    opacity: 1,
+    alphaMap: cloudTransparency,
+  });
+  const cloud = new THREE.Mesh(cloudGeometry, cloudMaterial);
+  scene.add(cloud);
+  return cloud;
+};
 
 // 新增太陽
 // const sunGeometry = new THREE.SphereGeometry(5, 50, 50);
@@ -336,6 +390,11 @@ let quaternion = new THREE.Quaternion();
 
 const control = new OrbitControls(camera, renderer.domElement);
 
+const skydome = createSkydome();
+const earth = createEarth();
+const cloud = createCloud();
+const ring = createRing();
+
 function animate() {
   // earth.rotation.y += 0.005;
   cloud.rotation.y += 0.004;
@@ -364,6 +423,51 @@ function animate() {
   // control.target.set(10, 0, 0);
   // control.update();
 
+  // 建立一個函式，使得鏡頭的航向可以往赤道移動
+  let moveVolume = Math.pow(moveProgress * 2 - 1, 4);
+
+  // 用戶有選取城市才會執行下面
+  if (lerpTarget) {
+    // 綁定數值給moveAlongTropical
+    moveAlongTropical.lerp(lerpTarget, 0.05).normalize().multiplyScalar(20);
+    lerpPropical.lerp(lerpTarget, 0.05).normalize().multiplyScalar(20);
+    let value = Math.pow(tropical * 2 - 1, 4);
+    // 鏡頭位置向城市上方的外太空移動
+    // 現在，將camera位置綁定到moveAlongTropical上。其中由於moveVolume範圍是1~0，其減少了Y值的輸出
+    camera.position
+      .set(
+        moveAlongTropical.x,
+        moveAlongTropical.y * moveVolume,
+        moveAlongTropical.z
+      )
+      .normalize()
+      .multiplyScalar(20);
+
+    // 使得OrbitControl不斷幫我們更新鏡頭
+    control.update();
+  }
+  text.lookAt(...camera.position.toArray());
+  tropical *= 0.97;
+  // 不斷更新progress，使得moveVolume不斷更新數值
+  moveProgress *= 0.97;
+
   renderer.render(scene, camera);
 }
 renderer.setAnimationLoop(animate);
+
+// 將LLA轉換成ECEF座標
+// 城市弧度轉換成世界座標
+const llaToEcef = (lat, lon, alt, rad) => {
+  let f = 0;
+  let ls = Math.atan((1 - f) ** 2 * Math.tan(lat));
+  let x =
+    rad * Math.cos(ls) * Math.cos(lon) + alt * Math.cos(lat) * Math.cos(lon);
+  let y =
+    rad * Math.cos(ls) * Math.sin(lon) + alt * Math.cos(lat) * Math.sin(lon);
+  let z = rad * Math.sin(ls) + alt * Math.sin(lat);
+  return new THREE.Vector3(x, -z, -y);
+};
+
+// 經緯度轉換成弧度
+const lonLauToRadian = (lon, lat, rad = 50) =>
+  llaToEcef((Math.PI * (0 - lat)) / 180, Math.PI * (lon / 180), 1, rad);
