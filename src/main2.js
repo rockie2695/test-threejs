@@ -15,12 +15,6 @@ const renderer = new THREE.WebGLRenderer();
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 
-function animate() {
-  requestAnimationFrame(animate);
-  renderer.render(scene, camera);
-}
-animate();
-
 // 新增環境光
 const addAmbientLight = () => {
   const light = new THREE.AmbientLight(0xffffff, 0.5);
@@ -72,3 +66,9 @@ addDirectionalLight();
 addPointLight();
 
 const control = new OrbitControls(camera, renderer.domElement);
+
+function animate() {
+  requestAnimationFrame(animate);
+  renderer.render(scene, camera);
+}
+renderer.setAnimationLoop(animate);
