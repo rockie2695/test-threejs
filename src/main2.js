@@ -40,7 +40,7 @@ const colorSet = [
   0x88d9e2, 0xa77968,
 ];
 
-const createPie = (startAngle, endAngle, color) => {
+const createPie = (startAngle, endAngle, color, depth) => {
   const curve = new THREE.EllipseCurve(
     0,
     0, // 橢圓形的原點
@@ -55,8 +55,20 @@ const createPie = (startAngle, endAngle, color) => {
   const shape = new THREE.Shape(curvePoints);
   shape.lineTo(0, 0);
   shape.closePath();
-  const shapeGeometry = new THREE.ShapeGeometry(shape);
-  const shapeMaterial = new THREE.MeshBasicMaterial({ color: color });
+  /*
+  ShapeGeometry ：產生一個具有面的形狀
+ExtrudeGeometry：產生一個具有體積的物體
+BufferGeometry：由用戶代入錨點位置而不指定任何作用。所以它有可能是三角面位置資訊，也可能是三角面Normal資訊，有可能是其他資訊。
+TubeGeometry：沿著線段產生一條「水管」
+  */
+  // const shapeGeometry = new THREE.ShapeGeometry(shape);
+  const shapeGeometry = new THREE.ExtrudeGeometry(shape, {
+    depth: depth * 2, // 隆起高度
+    steps: 1, // 在隆起的3D物件中間要切幾刀線
+    bevelEnabled: false, // 倒角（隆起向外擴展）
+  });
+  // const shapeMaterial = new THREE.MeshBasicMaterial({ color: color });
+  const shapeMaterial = new THREE.MeshStandardMaterial({ color: color });
   const mesh = new THREE.Mesh(shapeGeometry, shapeMaterial);
   scene.add(mesh);
   return mesh;
@@ -69,7 +81,7 @@ const dataToPie = (data) => {
   data.forEach((datium, i) => {
     // 將百分比轉換成0~2PI的弧度
     const radian = (datium.rate / 100) * (Math.PI * 2);
-    createPie(sum, radian + sum, colorSet[i]);
+    createPie(sum, radian + sum, colorSet[i], radian);
     sum += radian;
   });
 };
