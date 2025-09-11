@@ -23,11 +23,21 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.shadowMap.enabled = true;
 
 const sphereGeometry = new THREE.SphereGeometry(50, 30, 30);
-const planeMaterial = new THREE.MeshStandardMaterial({
+// 產生紋理
+const hdriPath =
+  "https://storage.googleapis.com/umas_public_assets/michaelBay/day19/model/Warehouse-with-lights.jpg";
+const texutre = await new THREE.TextureLoader().loadAsync(hdriPath);
+// 將紋理貼到材質圖中
+const sphereMaterial = new THREE.MeshStandardMaterial({
   side: THREE.BackSide,
   color: 0xcceeff,
+  map: texutre,
 });
-const sphere = new THREE.Mesh(sphereGeometry, planeMaterial);
+// const planeMaterial = new THREE.MeshStandardMaterial({
+//   side: THREE.BackSide,
+//   color: 0xcceeff,
+// });
+const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
 sphere.position.set(0, 0, 0);
 scene.add(sphere);
 
@@ -45,12 +55,12 @@ const addDirectionalLight = () => {
   directionalLight.shadow.camera.bottom = -d;
 
   // 新增Helper
-  const lightHelper = new THREE.DirectionalLightHelper(
-    directionalLight,
-    20,
-    0xffff00
-  );
-  scene.add(lightHelper);
+  // const lightHelper = new THREE.DirectionalLightHelper(
+  //   directionalLight,
+  //   20,
+  //   0xffff00
+  // );
+  // scene.add(lightHelper);
   // 更新位置
   directionalLight.target.position.set(0, 0, 0);
   directionalLight.target.updateMatrixWorld();
@@ -77,6 +87,7 @@ let cubeCamera;
   gltf.scene.traverse((object) => {
     // 撇除非Mesh的物件
     if (!object.isMesh) return;
+    if (object.name !== "pCube2") return;
     // 材質圖（嚴格來說是渲染對象）
     const cubeRenderTarget = new THREE.WebGLCubeRenderTarget(256, {
       // 渲染對象縮放設定
@@ -86,6 +97,11 @@ let cubeCamera;
     });
     // 實例化照相機，給定near, far，以及材質圖
     cubeCamera = new THREE.CubeCamera(0.1, 1000, cubeRenderTarget);
+    object.add(cubeCamera);
+    // 將材質圖貼在物件材質的envMap身上
+    object.material.envMap = cubeRenderTarget.texture;
+    object.material.roughness = 0;
+    object.material.metalness = 0;
   });
   scene.add(gltf.scene);
 })();
@@ -100,5 +116,9 @@ addAmbientLight();
 function animate() {
   requestAnimationFrame(animate);
   renderer.render(scene, camera);
+  // 如果cubeCamera已經實例化，就每幀更新鏡頭
+  if (cubeCamera) {
+    cubeCamera.update(renderer, scene);
+  }
 }
 animate();
