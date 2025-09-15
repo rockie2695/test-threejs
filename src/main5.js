@@ -60,12 +60,13 @@ const addDirectionalLight = () => {
   //   20,
   //   0xffff00
   // );
+  
   // scene.add(lightHelper);
   // 更新位置
   directionalLight.target.position.set(0, 0, 0);
   directionalLight.target.updateMatrixWorld();
   // 更新Helper
-  lightHelper.update();
+  // lightHelper.update();
 };
 
 // 新增環境光
